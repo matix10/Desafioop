@@ -1,0 +1,20 @@
+- name: Set-up Control Server (Grafana+Prometheus)
+  hosts: controlserver
+  gather_facts: True
+  tasks:
+      - name: install dependencies
+        become: yes
+        ansible.builtin.import_tasks: packages/grafana.yml
+        tags: [install-grafana]
+      - name: install dependencies
+        become: yes
+        ansible.builtin.import_tasks: packages/prometheus.yml
+        tags: [install-prometheus]
+- name: Install node exporter
+  hosts: webserver
+  gather_facts: True
+  tasks:
+      - name: install dependencies
+        become: yes
+        ansible.builtin.import_tasks: package/exporter.yml
+        tags: [install-node_exporter]

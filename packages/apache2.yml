@@ -1,0 +1,10 @@
+- name: Configure apache
+  apt:
+    name: apache2
+    state: latest
+
+- name: apache - enable apache
+  service:
+    name: apache2
+    enabled: true
+    state: started

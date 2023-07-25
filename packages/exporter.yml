@@ -1,0 +1,96 @@
+# Este playbook tiene como objetivo la instalacion 
+# y configuracion del node exporter, el cual sera instalado en el servidor wordpress o el que querramos conocer las metricas
+
+- name: Ensure group  exists
+  ansible.builtin.group:
+    name: node_exporter
+    state: present
+
+- name: Create user prometheus
+  ansible.builtin.user:
+    name: node_exporter
+    comment: node_exporter
+    uid: 1045
+    group: node_exporter
+
+
+- name: Download node exporter
+  unarchive:
+    src: https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz
+    dest: /tmp
+    remote_src: yes
+    owner: node_exporter
+    group: node_exporter
+    mode: 0755
+   creates: /tmp/node_exporter
+  
+- name: copy node to usr
+  copy:
+    src: /tmp/node_exporter-1.6.1.linux-amd64
+    dest: /usr/local/bin
+    group: node_exporter
+    mode: 0755
+    remote_src: yes
+    force: yes
+
+- name: copy node to usr
+  copy:
+    src: /tmp/node_exporter-1.6.1.linux-amd64/node_exporter
+    dest: /usr/local/bin/
+    group: node_exporter
+    mode: 0755
+    remote_src: yes
+    force: yes
+
+- name: edit prometheus config with node_exporter user
+  replace:
+    path: /etc/prometheus/prometheus.yml
+    regexp: "job_name: 'prometheus'"
+    replace: "'job_name: 'node_exporter' / scrape_interval: 5s'"
+    backup: yes
+
+- name: Insert/Update "Match User" configuration block in prometheus.service
+  ansible.builtin.blockinfile:
+    path: /etc/prometheus/prometheus.yml
+    block: |
+      - job_name: "node_exporter" / scrape_interval: 5s
+
+- name: Create node exporter service
+  file:
+    path: /etc/systemd/system/node_exporter.service
+    state: touch
+
+- name: Insert/Update "Match User" configuration block in node_exporter.service
+  ansible.builtin.blockinfile:
+      path: /etc/systemd/system/node_exporter.service
+      block: |
+          [Unit]
+          Description=Node Exporter
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User=node_exporter
+          Group=node_exporter
+          Type=simple
+          ExecStart=/usr/local/bin/node_exporter
+
+          [Install]
+          WantedBy=multi-user.target
+
+
+- name: restart prometheus
+  ansible.builtin.systemd:
+    state: restarted
+    daemon_reload: true
+    name: prometheus
+
+
+- name: restart node
+  ansible.builtin.systemd:
+    state: restarted
+    daemon_reload: true
+    name: node_exporter
+
+
+

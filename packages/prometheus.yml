@@ -1,0 +1,129 @@
+# Este playbook tiene como objetivo la instalacion 
+# y configuracion de prometheus en un servidor proporcionado por el cliente
+
+- name: Ensure group "somegroup" exists
+  ansible.builtin.group:
+    name: prom
+    state: present
+
+- name: Create user prometheus
+  ansible.builtin.user:
+    name: prom
+    comment: prom
+    uid: 1040
+    group: prom
+
+- name: Download Prometheus
+  unarchive:
+      src: https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
+      dest: /tmp
+      remote_src: yes
+      owner: prom
+      group: prom
+      mode: 0755
+      creates: /tmp/prometheus
+      
+- name: create prometheus dir
+  file:
+    path: /etc/prometheus
+    state: touch
+
+- name: create prometheus dir lib
+  file:
+    path: /var/lib/prometheus
+    state: touch
+ 
+
+- name: create prometheus dir
+  command: sudo chown prom:prom /var/lib/prometheus
+
+- name: copy prometheus to usr
+  copy:
+    src: /tmp/prometheus-2.45.0.linux-amd64/prometheus
+    dest: /usr/local/bin/
+    group: prom
+    mode: 0755
+    remote_src: yes
+    force: yes
+
+- name: copy prometheus tools
+  copy:
+    src: /tmp/prometheus-2.45.0.linux-amd64/promtool
+    dest: /usr/local/bin/
+    group: prom
+    mode: 0755
+    remote_src: yes
+    force: yes
+    
+  
+- name: copy prometheus consoles
+  copy:
+    src: /tmp/prometheus-2.45.0.linux-amd64/consoles
+    dest: /etc/prometheus/consoles
+    group: prom
+    mode: 0755
+    remote_src: yes
+    force: yes
+    directory_mode: R
+
+- name: copy prometheus lib
+  copy:
+    src: /tmp/prometheus-2.45.0.linux-amd64/console_libraries
+    dest: /etc/prometheus/
+    group: prom
+    mode: 0755
+    remote_src: yes
+    force: yes
+    directory_mode: R
+
+- name: copy prometheus lib
+  copy:
+    src: /tmp/prometheus-2.45.0.linux-amd64/prometheus.yml
+    dest: /etc/prometheus/
+    group: prom
+    mode: 0755
+    remote_src: yes
+    force: yes
+    
+
+- name: remove prometheus file from tmp
+  file:
+    path: /tmp/prometheus
+    state: absent
+
+- name: Insert/Update "Match User" configuration block in prometheus.service
+  ansible.builtin.blockinfile:
+    path: /etc/systemd/system/prometheus.service
+    block: |
+      [Unit]
+      Description=Prometheus
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      User=prometheus
+      Group=prometheus
+      Type=simple
+      ExecStart=/usr/local/bin/prometheus \
+          --config.file /etc/prometheus/prometheus.yml \
+          --storage.tsdb.path /var/lib/prometheus/ \
+          --web.console.templates=/etc/prometheus/consoles \
+          --web.console.libraries=/etc/prometheus/console_libraries
+
+      [Install]
+      WantedBy=multi-user.target
+   
+
+- name: ejecutar prom
+  command: sudo -u prom /usr/local/bin/prometheus \
+   --config.file /etc/prometheus/prometheus.yml \
+   --storage.tsdb.path /var/lib/prometheus/ \
+   --web.console.templates=/etc/prometheus/consoles \
+   --web.console.libraries=/etc/prometheus/console_libraries
+
+- name: restart prometheus
+  ansible.builtin.systemd:
+    state: start
+    daemon_reload: true
+    name: prometheus
+

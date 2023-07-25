@@ -1,0 +1,48 @@
+# Este playbook tiene como objetivo la instalacion 
+# y configuracion de grafana en un servidor proporcionado por el cliente
+
+
+- name: HTTP transport 
+  apt:
+    name: apt-transport-https
+    state: present
+
+- name: Software properties transport 
+  apt:
+    name: software-properties-common
+    state: present
+
+- name: Get grafana repo
+  ansible.builtin.get_url:
+    url: https://apt.grafana.com/gpg.key
+    dest: /usr/share/keyrings/grafana.key
+    mode: 740
+
+
+- name: adduser libconf
+  apt:
+    name:  libfontconfig1
+    state: present
+
+- name: Get grafana
+  ansible.builtin.get_url:
+    url:   https://dl.grafana.com/enterprise/release/grafana-enterprise_10.0.2_amd64.deb
+    dest: /home/vagrant
+    mode: 740
+
+- name: Install Grafana
+  apt:
+    deb: /home/vagrant/grafana-enterprise_10.0.2_amd64.deb
+
+- name: Set stable repo
+  command: echo "deb [signed-by=/usr/share/keyrings/grafana.key] https://apt.grafana.com stable main" | sudo tee -a /etc/apt/sources.list.d/grafana.list
+
+- name: update apt
+  apt:
+    update_cache: yes
+    
+- name: Start Grafana service
+  service:
+    name: grafana-server.service
+    state: started
+  
